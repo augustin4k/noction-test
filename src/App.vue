@@ -71,8 +71,6 @@ const fetchUsers = async (init: boolean = true) => {
     const mapUsers = fetchTodos.map(i => ({ ...i, name: groupedUsers[i.userId]?.name ?? '' }))
 
     todos.value = mapUsers;
-    // lets see if there is not filters already set in our query
-    // and if yes => filter our list accordingly
   }
 }
 
