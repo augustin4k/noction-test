@@ -13,25 +13,45 @@ const readQuery = () => {
   }
 }
 const todos = ref<{ userId: number, id: number; title: string; name: string, completed: boolean }[]>([]);
-const initList = ref<typeof todos.value>([]);
+// const initList = ref<typeof todos.value>([]);
 const form = ref<{ userId: number | null; completed: boolean | null }>(readQuery());
 const userOptions = ref<{ userId: number; name: string }[]>([]);
 
-const fetchUsers = async () => {
+const fetchUsers = async (init: boolean = true) => {
   const hostname = `https://jsonplaceholder.typicode.com`
-  // lets call axios request
-  const responseUsers = await fetch(`${hostname}/users`);
-  const responseTodos = await fetch(`${hostname}/todos`)
+  
+  const { userId, completed } = form.value;
+  
+  if (init) {
+    // for to fetching only once at init with all needed values
 
-  if (responseUsers && responseTodos) {
+    // lets call axios request
+    const responseUsers = await fetch(`${hostname}/users`);
 
-    const fetchUsers = await responseUsers.json() as {
-      id: number,
-      name: string
-    }[];
+    if (responseUsers.ok) {
+      const fetchUsers = await responseUsers.json() as {
+        id: number,
+        name: string
+      }[];
 
-    // fill user options state
-    userOptions.value = fetchUsers.map(u => ({ userId: u.id, name: u.name }));
+      // fill user options state
+      userOptions.value = fetchUsers.map(u => ({ userId: u.id, name: u.name }));
+    }
+  }
+  const responseTodos = await fetch((() => {
+    const url = new URL(`${hostname}/todos`);
+    Object.entries({ userId, completed }).forEach(([key, value]) => {
+      if (value != null) {
+        url.searchParams.set(key, String(value))
+      } else {
+        url.searchParams.delete(key)
+      }
+    })
+
+    return url.toString()
+  })());
+
+  if (userOptions.value.length && responseTodos) {
 
     const fetchTodos = await responseTodos.json() as {
       id: number,
@@ -41,8 +61,8 @@ const fetchUsers = async () => {
     }[]
 
     // lets groups users by their id and fill todos list with their name
-    const groupedUsers = fetchUsers.reduce<Record<number, typeof fetchUsers[0]>>((acc, curr) => {
-      acc[curr.id] = curr;
+    const groupedUsers = userOptions.value.reduce<Record<number, typeof userOptions.value[0]>>((acc, curr) => {
+      acc[curr.userId] = curr;
 
       return acc;
     }, {})
@@ -50,32 +70,10 @@ const fetchUsers = async () => {
     // lets map users with completed true
     const mapUsers = fetchTodos.map(i => ({ ...i, name: groupedUsers[i.userId]?.name ?? '' }))
 
-    initList.value = mapUsers;
+    todos.value = mapUsers;
     // lets see if there is not filters already set in our query
     // and if yes => filter our list accordingly
-    filterUsers()
   }
-}
-
-const filterUsers = () => {
-  // lets take in count all filters which we have
-  const { userId, completed } = form.value;
-
-  let filteredUsers = initList.value.filter(u => {
-    let response = true;
-    if (userId) {
-      response = u.userId === userId
-    }
-
-    if (response && completed != null) {
-      response = u.completed === completed;
-    }
-
-    return response;
-
-  });
-
-  todos.value = filteredUsers;
 }
 
 const setQueryParams = () => {
@@ -97,21 +95,21 @@ const setQueryParams = () => {
   window.history.pushState({}, '', currentUrl)
 }
 
-const resetForm = () => {
+const resetForm = async () => {
   form.value = {
     userId: null,
     completed: null
   }
-
-  setQueryParams()
-  todos.value = initList.value;
+  
+  setQueryParams();
+  await fetchUsers(false);
 }
 // at first mounting of component => lets fetch users
 onMounted(fetchUsers);
 
 watch(form, async (newValue, oldValue) => {
-  // once value is changed vor some of form's keys => lets filter our list
-  filterUsers();
+  // fetch again user => but with new form parameters
+  await fetchUsers(false);
   // lets set apart our query
   setQueryParams()
 }, { deep: true })
