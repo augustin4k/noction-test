@@ -1,9 +1,20 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from "vue"
 
+const readQuery = () => {
+  const currentUrl = new URL(window.location.href);
+
+  const userId = currentUrl.searchParams.get('userId') ?? null;
+  const completed = currentUrl.searchParams.get('completed') ?? null;
+
+  return {
+    userId: userId != null ? Number(userId) : null,
+    completed: completed != null ? (completed === 'false' ? false : true) : null 
+  }
+}
 const todos = ref<{ userId: number, id: number; title: string; name: string, completed: boolean }[]>([]);
 const initList = ref<typeof todos.value>([]);
-const form = ref<{ userId: number | null; completed: boolean | null }>({ userId: null, completed: null });
+const form = ref<{ userId: number | null; completed: boolean | null }>(readQuery());
 const userOptions = ref<{ userId: number; name: string }[]>([]);
 
 const fetchUsers = async () => {
@@ -40,7 +51,9 @@ const fetchUsers = async () => {
     const mapUsers = fetchTodos.map(i => ({ ...i, name: groupedUsers[i.userId]?.name ?? '' }))
 
     initList.value = mapUsers;
-    todos.value = initList.value;
+    // lets see if there is not filters already set in our query
+    // and if yes => filter our list accordingly
+    filterUsers()
   }
 }
 
@@ -65,23 +78,42 @@ const filterUsers = () => {
   todos.value = filteredUsers;
 }
 
+const setQueryParams = () => {
+  const { userId, completed } = form.value;
+  const currentUrl = new URL(window.location.href);
+
+  if (userId != null) { 
+    currentUrl.searchParams.set('userId', String(userId));
+  } else {
+    currentUrl.searchParams.delete('userId')
+  }
+
+  if(completed != null) {
+    currentUrl.searchParams.set('completed', String(completed))
+  } else {
+    currentUrl.searchParams.delete('completed')
+  }
+ 
+  window.history.pushState({}, '', currentUrl)
+}
+
 const resetForm = () => {
   form.value = {
     userId: null,
     completed: null
   }
 
+  setQueryParams()
   todos.value = initList.value;
-
-
 }
 // at first mounting of component => lets fetch users
 onMounted(fetchUsers);
 
-watch(form, (newValue, oldValue) => {
-  console.log(`trigger filter`);
+watch(form, async (newValue, oldValue) => {
   // once value is changed vor some of form's keys => lets filter our list
-  filterUsers()
+  filterUsers();
+  // lets set apart our query
+  setQueryParams()
 }, { deep: true })
 </script>
 
@@ -93,7 +125,7 @@ watch(form, (newValue, oldValue) => {
       <div class="d-flex justify-content-around">
         <select v-model="form.userId">
           <option :value="null">Select user</option>
-          <option v-for="user in userOptions" :value="user.userId">{{ user.name }}</option>
+          <option v-for="user in userOptions" :value="user.userId" :key="user.userId">{{ user.name }}</option>
         </select>
         <div>
           <input type="checkbox" id="filterCompleted" v-model="form.completed" />
