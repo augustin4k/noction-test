@@ -119,13 +119,16 @@ watch(form, async (newValue, oldValue) => {
     <!-- here should be our filter -->
     <div class="d-flex flex-column" style="padding: 1rem; border: solid 1px white; border-radius: 30px;">
       <div class="d-flex justify-content-around">
-        <select v-model="form.userId">
-          <option :value="null">Select user</option>
-          <option v-for="user in userOptions" :value="user.userId" :key="user.userId">{{ user.name }}</option>
-        </select>
         <div>
+          <label for="filterUserId" style="margin-right: 0.5rem;">User</label>
+          <select id="filterUserId" v-model="form.userId">
+            <option :value="null">Select user</option>
+            <option v-for="user in userOptions" :value="user.userId" :key="user.userId">{{ user.name }}</option>
+          </select>
+        </div>
+        <div>
+          <label style="margin-right: 0.5rem;" for="filterCompleted">Completed</label>
           <input type="checkbox" id="filterCompleted" v-model="form.completed" />
-          <label style="margin-left: 0.5rem;" for="filterCompleted">Completed</label>
         </div>
       </div>
       <button @click="resetForm" style="background-color: red; align-self: flex-end; color: white;">Reset</button>
